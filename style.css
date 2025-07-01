@@ -58,6 +58,12 @@ a:hover {
 }
 
 /* Smooth fade for hidden cards */
-.card.hidden {
+.bias-col.hidden {
   display: none !important;
+}
+
+.advice {
+  background-color: #e9ecef;
+  border-radius: .5rem;
+  padding: .75rem 1rem;
 }
