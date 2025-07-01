@@ -19,6 +19,12 @@ html, body {
   padding-left: 1.25rem;
 }
 
+#languageSelect {
+  width: auto;
+  min-width: 110px;
+  margin-right: 0.5rem;
+}
+
 /* Cards */
 .card {
   border: none;

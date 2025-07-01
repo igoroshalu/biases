@@ -14,9 +14,15 @@
   <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
     <div class="container">
       <a class="navbar-brand" href="#">Когнитивные искажения</a>
-      <form class="d-flex ms-auto" role="search">
-        <input id="searchInput" class="form-control" type="search" placeholder="Поиск..." aria-label="Поиск">
-      </form>
+      <div class="d-flex ms-auto align-items-center">
+        <select id="languageSelect" class="form-select me-2" style="width:auto">
+          <option value="ru">Русский</option>
+          <option value="en">English</option>
+        </select>
+        <form class="d-flex" role="search">
+          <input id="searchInput" class="form-control" type="search" placeholder="Поиск..." aria-label="Поиск">
+        </form>
+      </div>
     </div>
   </nav>
 
@@ -32,20 +38,54 @@
   <script>
     const searchInput = document.getElementById('searchInput');
     const listEl = document.getElementById('bias-list');
+    const langSelect = document.getElementById('languageSelect');
+    const locale = localStorage.getItem('lang') || 'ru';
+    langSelect.value = locale;
+    document.documentElement.lang = locale;
+
+    const texts = {
+      ru: {
+        brand: 'Когнитивные искажения',
+        heading: 'Список когнитивных искажений',
+        search: 'Поиск...',
+        error: 'Не удалось загрузить данные. Попробуйте позже.'
+      },
+      en: {
+        brand: 'Cognitive biases',
+        heading: 'List of cognitive biases',
+        search: 'Search...',
+        error: 'Failed to load data. Please try again later.'
+      }
+    };
+
+    function applyTexts() {
+      const t = texts[locale];
+      document.querySelector('.navbar-brand').textContent = t.brand;
+      document.querySelector('h1').textContent = t.heading;
+      searchInput.placeholder = t.search;
+    }
+
+    applyTexts();
+
+    langSelect.addEventListener('change', () => {
+      localStorage.setItem('lang', langSelect.value);
+      location.reload();
+    });
 
     function getBiases() {
-      const cached = localStorage.getItem('biasData');
+      const cacheKey = `biasData_${locale}`;
+      const cached = localStorage.getItem(cacheKey);
       if (cached) {
         try {
           return Promise.resolve(JSON.parse(cached));
         } catch (e) {
-          localStorage.removeItem('biasData');
+          localStorage.removeItem(cacheKey);
         }
       }
-      return fetch('https://api.lutai.ru/api/biases?pagination[limit]=300&locale=ru')
+      return fetch(`https://api.lutai.ru/api/biases?pagination[limit]=300&locale=${locale}`)
         .then(r => r.json())
         .then(({data}) => {
-          localStorage.setItem('biasData', JSON.stringify(data));
+          localStorage.setItem(cacheKey, JSON.stringify(data));
           return data;
         });
     }
@@ -81,7 +121,7 @@
         });
       })
       .catch(() => {
-        listEl.innerHTML = '<p class="text-danger">Не удалось загрузить данные. Попробуйте позже.</p>';
+        listEl.innerHTML = `<p class="text-danger">${texts[locale].error}</p>`;
       });
   </script>
 </body>
