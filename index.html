@@ -41,7 +41,7 @@
         data.forEach(bias => {
           const trueId = bias.biasId - 100;
           const col = document.createElement('div');
-          col.className = 'col-12'; // один столбик
+          col.className = 'col-12 bias-col';
           col.innerHTML = `
             <div class="card h-100" data-title="${bias.title.toLowerCase()}">
               <div class="card-body">
@@ -56,10 +56,11 @@
         // Поиск
         searchInput.addEventListener('input', () => {
           const q = searchInput.value.toLowerCase().trim();
-          const cards = listEl.querySelectorAll('.card');
-          cards.forEach(card => {
+          const cols = listEl.querySelectorAll('.bias-col');
+          cols.forEach(col => {
+            const card = col.querySelector('.card');
             const title = card.dataset.title;
-            card.classList.toggle('hidden', !title.includes(q));
+            col.classList.toggle('hidden', !title.includes(q));
           });
         });
       })
