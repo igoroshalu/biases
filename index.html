@@ -33,9 +33,25 @@
     const searchInput = document.getElementById('searchInput');
     const listEl = document.getElementById('bias-list');
 
-    fetch('https://api.lutai.ru/api/biases?pagination[limit]=300&locale=ru')
-      .then(r => r.json())
-      .then(({data}) => {
+    function getBiases() {
+      const cached = localStorage.getItem('biasData');
+      if (cached) {
+        try {
+          return Promise.resolve(JSON.parse(cached));
+        } catch (e) {
+          localStorage.removeItem('biasData');
+        }
+      }
+      return fetch('https://api.lutai.ru/api/biases?pagination[limit]=300&locale=ru')
+        .then(r => r.json())
+        .then(({data}) => {
+          localStorage.setItem('biasData', JSON.stringify(data));
+          return data;
+        });
+    }
+
+    getBiases()
+      .then(data => {
         data.sort((a,b) => (a.biasId - 100) - (b.biasId - 100));
 
         data.forEach(bias => {

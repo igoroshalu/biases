@@ -25,13 +25,29 @@
     const params = new URLSearchParams(window.location.search);
     const biasIdParam = parseInt(params.get('biasId'), 10);
 
+    function getBiases() {
+      const cached = localStorage.getItem('biasData');
+      if (cached) {
+        try {
+          return Promise.resolve(JSON.parse(cached));
+        } catch (e) {
+          localStorage.removeItem('biasData');
+        }
+      }
+      return fetch('https://api.lutai.ru/api/biases?pagination[limit]=300&locale=ru')
+        .then(r => r.json())
+        .then(({data}) => {
+          localStorage.setItem('biasData', JSON.stringify(data));
+          return data;
+        });
+    }
+
     if (!biasIdParam) {
       document.getElementById('bias-content').innerHTML =
         '<p class="text-danger">Не указан BIAS ID.</p>';
     } else {
-      fetch('https://api.lutai.ru/api/biases?pagination[limit]=300&locale=ru')
-        .then(r => r.json())
-        .then(({data}) => {
+      getBiases()
+        .then(data => {
           const bias = data.find(b => b.biasId === biasIdParam);
           if (!bias) {
             document.getElementById('bias-content').innerHTML =
