@@ -23,8 +23,9 @@
   <div class="container my-4">
     <h1 class="mb-4" id="pageTitle">Тренировка</h1>
     <div id="quiz" class="card p-4">
-      <p id="questionText">...</p>
-      <div id="answers" class="mt-3"></div>
+      <h4 id="questionText" class="mb-3">...</h4>
+      <div id="answers" class="mt-3 d-grid gap-2"></div>
+      <p id="explanation" class="mt-3"></p>
       <button id="nextBtn" class="btn btn-primary mt-3 d-none">Следующий вопрос</button>
     </div>
   </div>
@@ -85,19 +86,31 @@
 
     const questionText = document.getElementById('questionText');
     const answersEl = document.getElementById('answers');
+    const explanationEl = document.getElementById('explanation');
     const nextBtn = document.getElementById('nextBtn');
 
     let biases = [];
     let questions = [];
     let currentAnswer = '';
+    let currentExplanation = '';
 
     function buildQuestions(data) {
       data.forEach(b => {
         let qs = b.content?.questions;
-        if (typeof qs === 'string') qs = [qs];
-        if (!Array.isArray(qs)) return;
+        if (!qs) return;
+        if (!Array.isArray(qs)) qs = [qs];
         qs.forEach(q => {
-          questions.push({text: q, title: b.title});
+          let text = '';
+          let exp = '';
+          if (typeof q === 'string') {
+            text = q;
+          } else if (typeof q === 'object' && q) {
+            text = q.question || q.text || '';
+            exp = q.explanation || q.answer || '';
+          }
+          if (text) {
+            questions.push({text, title: b.title, explanation: exp});
+          }
         });
       });
     }
@@ -112,10 +125,12 @@
 
     function showQuestion() {
       nextBtn.classList.add('d-none');
+      explanationEl.textContent = '';
       answersEl.innerHTML = '';
 
       const qItem = questions[Math.floor(Math.random() * questions.length)];
       currentAnswer = qItem.title;
+      currentExplanation = qItem.explanation || '';
       questionText.textContent = qItem.text;
 
       const other = biases.filter(b => b.title !== currentAnswer);
@@ -125,24 +140,27 @@
 
       options.forEach(opt => {
         const btn = document.createElement('button');
-        btn.className = 'btn btn-outline-primary me-2 mb-2';
+        btn.className = 'btn btn-outline-primary w-100 text-start';
         btn.textContent = opt;
-        btn.onclick = () => checkAnswer(opt, btn);
+        btn.onclick = () => checkAnswer(btn);
         answersEl.appendChild(btn);
       });
     }
 
-    function checkAnswer(answer, btn) {
-      Array.from(answersEl.children).forEach(b => {
-        b.disabled = true;
-        if (b.textContent === currentAnswer) {
-          b.classList.remove('btn-outline-primary');
-          b.classList.add('btn-success');
-        } else if (b === btn) {
-          b.classList.remove('btn-outline-primary');
-          b.classList.add('btn-danger');
-        }
-      });
+   function checkAnswer(btn) {
+     Array.from(answersEl.children).forEach(b => {
+       b.disabled = true;
+       if (b.textContent === currentAnswer) {
+         b.classList.remove('btn-outline-primary');
+         b.classList.add('btn-success');
+       } else if (b === btn) {
+         b.classList.remove('btn-outline-primary');
+         b.classList.add('btn-danger');
+       }
+     });
+      if (currentExplanation) {
+        explanationEl.textContent = currentExplanation;
+      }
       nextBtn.classList.remove('d-none');
     }
 
