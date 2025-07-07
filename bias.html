@@ -12,6 +12,7 @@
     <div class="container">
       <a class="navbar-brand" href="index.html">Когнитивные искажения</a>
       <div class="d-flex ms-auto align-items-center">
+        <a id="trainingLink" href="training.html" class="btn btn-outline-light me-2">Тренировка</a>
         <select id="languageSelect" class="form-select me-2" style="width:auto">
           <option value="ru">Русский</option>
           <option value="en">English</option>
@@ -45,7 +46,8 @@
         wiki: 'Статья в Википедии',
         examples: 'Примеры',
         more: 'Подробнее',
-        advices: 'Советы'
+        advices: 'Советы',
+        training: 'Тренировка'
       },
       en: {
         brand: 'Cognitive biases',
@@ -56,7 +58,8 @@
         wiki: 'Wikipedia article',
         examples: 'Examples',
         more: 'More details',
-        advices: 'Advice'
+        advices: 'Advice',
+        training: 'Training'
       }
     };
 
@@ -64,6 +67,7 @@
       const t = texts[locale];
       document.querySelector('.navbar-brand').textContent = t.brand;
       document.getElementById('bias-content').innerHTML = `<p>${t.loading}</p>`;
+      document.getElementById('trainingLink').textContent = t.training;
     }
 
     applyTexts();
