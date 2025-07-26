@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <title>Когнитивные искажения</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <!-- Bootstrap CSS -->
+  <!-- Bootstrap -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <!-- Custom styles -->
   <link href="style.css" rel="stylesheet">
@@ -13,113 +13,104 @@
   <!-- Navbar -->
   <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
     <div class="container">
-      <a class="navbar-brand" href="#">Когнитивные искажения</a>
+      <a class="navbar-brand" href="#"><b>BIAS TRAINER</b></a>
       <div class="d-flex ms-auto align-items-center">
         <a id="trainingLink" href="training.html" class="btn btn-outline-light me-2">Тренировка</a>
         <select id="languageSelect" class="form-select me-2" style="width:auto">
-          <option value="ru">Русский</option>
-          <option value="en">English</option>
+          <option value="ru">🇷🇺 RU</option>
+          <option value="en">🇬🇧 Eng</option>
         </select>
-        <form class="d-flex" role="search">
-          <input id="searchInput" class="form-control" type="search" placeholder="Поиск..." aria-label="Поиск">
-        </form>
+        <input id="searchInput" class="form-control" type="search" placeholder="Поиск…" aria-label="Поиск" style="max-width:270px">
       </div>
     </div>
   </nav>
 
   <div class="container my-4">
-    <h1 class="mb-4">Список когнитивных искажений</h1>
-
-    <!-- Cards -->
-    <div id="bias-list" class="row g-3"></div>
+    <h1 class="mb-4" id="pageHeading">Список когнитивных искажений</h1>
+    <!-- Grid: 4 cols on md+ -->
+    <div id="bias-list" class="row g-4"></div>
   </div>
 
-  <!-- Bootstrap bundle -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script>
-    const searchInput = document.getElementById('searchInput');
-    const listEl = document.getElementById('bias-list');
-    const langSelect = document.getElementById('languageSelect');
-    const locale = localStorage.getItem('lang') || 'ru';
+    const searchInput   = document.getElementById('searchInput');
+    const listEl        = document.getElementById('bias-list');
+    const langSelect    = document.getElementById('languageSelect');
+    const trainingLink  = document.getElementById('trainingLink');
+    const htmlTag       = document.documentElement;
+
+    let locale = localStorage.getItem('lang') || 'ru';
     langSelect.value = locale;
-    document.documentElement.lang = locale;
+    htmlTag.lang = locale;
 
     const texts = {
-      ru: {
-        brand: 'Когнитивные искажения',
-        heading: 'Список когнитивных искажений',
-        search: 'Поиск...',
-        training: 'Тренировка',
-        error: 'Не удалось загрузить данные. Попробуйте позже.'
-      },
-      en: {
-        brand: 'Cognitive biases',
-        heading: 'List of cognitive biases',
-        search: 'Search...',
-        training: 'Training',
-        error: 'Failed to load data. Please try again later.'
-      }
+      ru: {brand:'BIAS TRAINER', heading:'Список когнитивных искажений',
+           search:'Поиск…', training:'Тренировка', error:'Не удалось загрузить данные.'},
+      en: {brand:'Cognitive biases', heading:'List of cognitive biases',
+           search:'Search…', training:'Training', error:'Failed to load data.'}
     };
-
     function applyTexts() {
       const t = texts[locale];
-      document.querySelector('.navbar-brand').textContent = t.brand;
-      document.querySelector('h1').textContent = t.heading;
+      // document.querySelector('.navbar-brand').textContent = t.brand;
+      document.getElementById('pageHeading').textContent  = t.heading;
       searchInput.placeholder = t.search;
-      document.getElementById('trainingLink').textContent = t.training;
+      trainingLink.textContent = t.training;
     }
-
     applyTexts();
-
     langSelect.addEventListener('change', () => {
       localStorage.setItem('lang', langSelect.value);
       location.reload();
     });
 
     function getBiases() {
-      const cacheKey = `biasData_${locale}`;
-      const cached = localStorage.getItem(cacheKey);
+      const key = `biasData_${locale}`;
+      const cached = localStorage.getItem(key);
       if (cached) {
-        try {
-          return Promise.resolve(JSON.parse(cached));
-        } catch (e) {
-          localStorage.removeItem(cacheKey);
-        }
+        try { return Promise.resolve(JSON.parse(cached)); }
+        catch { localStorage.removeItem(key); }
       }
       return fetch(`https://api.lutai.ru/api/biases?pagination[limit]=300&locale=${locale}`)
         .then(r => r.json())
-        .then(({data}) => {
-          localStorage.setItem(cacheKey, JSON.stringify(data));
-          return data;
-        });
+        .then(({data}) => { localStorage.setItem(key, JSON.stringify(data)); return data; });
     }
 
     getBiases()
       .then(data => {
-        data.sort((a,b) => (a.biasId - 100) - (b.biasId - 100));
-
+        data.sort((a,b) => (a.biasId-100) - (b.biasId-100));
         data.forEach(bias => {
-          const trueId = bias.biasId - 100;
+          const idTrue  = bias.biasId - 100;
+          const title   = bias.title;
+          const descr   = bias.shortDescription || '';
+          const imgName = bias.content?.engTitle?.trim();
+          const imgSrc  = imgName ? `img/${encodeURIComponent(imgName)}.png` : null;
+
           const col = document.createElement('div');
-          col.className = 'col-12 bias-col';
+          col.className = 'col-12 col-sm-6 col-md-3 bias-col';
+
           col.innerHTML = `
-            <div class="card h-100" data-title="${bias.title.toLowerCase()}">
-              <div class="card-body">
-                <h5 class="card-title">${trueId}. ${bias.title}</h5>
-                <p class="card-text">${bias.shortDescription || ''}</p>
-                <a href="bias.html?biasId=${bias.biasId}" class="stretched-link" aria-label="Подробнее"></a>
+            <div class="card card-tile h-100 d-flex flex-column">
+              <div class="tile-img-wrap">
+                ${imgSrc
+                  ? `<img src="${imgSrc}"
+                          alt="${title}"
+                          class="tile-img"
+                          loading="lazy"
+                          onerror="this.replaceWith(document.createElement('div')).classList.add('tile-img-placeholder')">`
+                  : `<div class="tile-img-placeholder"></div>`}
+              </div>
+              <div class="card-body px-3 py-2 d-flex flex-column">
+                <h5 class="card-title mb-1">${idTrue}. ${title}</h5>
+                <p class="card-text mb-0">${descr}</p>
+                <a href="bias.html?biasId=${bias.biasId}" class="stretched-link"></a>
               </div>
             </div>`;
           listEl.appendChild(col);
         });
 
-        // Поиск
         searchInput.addEventListener('input', () => {
           const q = searchInput.value.toLowerCase().trim();
-          const cols = listEl.querySelectorAll('.bias-col');
-          cols.forEach(col => {
-            const card = col.querySelector('.card');
-            const title = card.dataset.title;
+          listEl.querySelectorAll('.bias-col').forEach(col => {
+            const title = col.querySelector('.card').dataset.title;
             col.classList.toggle('hidden', !title.includes(q));
           });
         });
