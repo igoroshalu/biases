@@ -81,21 +81,21 @@
           const idTrue  = bias.biasId - 100;
           const title   = bias.title;
           const descr   = bias.shortDescription || '';
-          const imgName = bias.content?.engTitle?.trim();
+          const imgName = bias.content?.engTitle?.trim().toLowerCase();
           const imgSrc  = imgName ? `img/${encodeURIComponent(imgName)}.png` : null;
 
           const col = document.createElement('div');
           col.className = 'col-12 col-sm-6 col-md-3 bias-col';
 
           col.innerHTML = `
-            <div class="card card-tile h-100 d-flex flex-column">
+            <div class="card card-tile h-100 d-flex flex-column" data-title="${title.toLowerCase()}">
               <div class="tile-img-wrap">
                 ${imgSrc
                   ? `<img src="${imgSrc}"
                           alt="${title}"
                           class="tile-img"
                           loading="lazy"
-                          onerror="this.replaceWith(document.createElement('div')).classList.add('tile-img-placeholder')">`
+                          onerror="this.onerror=null; const d=document.createElement('div'); d.className='tile-img-placeholder'; this.replaceWith(d);">`
                   : `<div class="tile-img-placeholder"></div>`}
               </div>
               <div class="card-body px-3 py-2 d-flex flex-column">
