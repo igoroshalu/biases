@@ -108,7 +108,7 @@
         });
 
         searchInput.addEventListener('input', () => {
-          const q = searchInput.value.toLowerCase().trim();
+          const q = searchInput.value.trim();
           listEl.querySelectorAll('.bias-col').forEach(col => {
             const title = col.querySelector('.card').dataset.title;
             col.classList.toggle('hidden', !title.includes(q));
