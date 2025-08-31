@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="utf-8">
+  <meta charset="utf-8" />
   <title>Тренировка</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="style.css" rel="stylesheet">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css" rel="stylesheet" />
 </head>
-<body>
+<body class="quiz-body">
   <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
     <div class="container">
       <a class="navbar-brand" href="index.html">Когнитивные искажения</a>
@@ -21,146 +21,232 @@
   </nav>
 
   <div class="container my-4">
-    <h1 class="mb-4" id="pageTitle">Тренировка</h1>
-    <div id="quiz" class="card p-4">
-      <p id="questionText">...</p>
-      <div id="answers" class="mt-3"></div>
-      <button id="nextBtn" class="btn btn-primary mt-3 d-none">Следующий вопрос</button>
+    <div class="row justify-content-center">
+      <div class="col-12 col-lg-8">
+        <h1 class="mb-4" id="pageTitle">Тренировка</h1>
+
+        <div id="quiz" class="quiz-card card p-4 shadow-sm">
+          <p id="questionText" class="fs-5 mb-3">...</p>
+
+          <div id="answers" class="mt-2 vstack gap-3" role="group" aria-label="Варианты ответа"></div>
+
+          <div id="explanation" class="explanation d-none mt-3" aria-live="polite"></div>
+
+          <button id="nextBtn" class="btn btn-next btn-gradient w-100 mt-3 d-none">
+            Следующий вопрос
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script>
-    const languageSelect = document.getElementById('languageSelect');
-    const locale = localStorage.getItem('lang') || 'ru';
-    languageSelect.value = locale;
-    document.documentElement.lang = locale;
+<script>
+  // --- i18n ---
+  const languageSelect = document.getElementById('languageSelect');
+  const locale = localStorage.getItem('lang') || 'ru';
+  languageSelect.value = locale;
+  document.documentElement.lang = locale;
 
-    const texts = {
-      ru: {
-        brand: 'Когнитивные искажения',
-        title: 'Тренировка',
-        next: 'Следующий вопрос',
-        loadError: 'Ошибка загрузки данных.'
-      },
-      en: {
-        brand: 'Cognitive biases',
-        title: 'Training',
-        next: 'Next question',
-        loadError: 'Failed to load data.'
-      }
-    };
+  const texts = {
+    ru: {
+      brand: 'Когнитивные искажения',
+      title: 'Тренировка',
+      next: 'Следующий вопрос',
+      loadError: 'Ошибка загрузки данных.',
+      explanation: 'Пояснение',
+      linkToBias: 'Перейти к искажению'
+    },
+    en: {
+      brand: 'Cognitive biases',
+      title: 'Training',
+      next: 'Next question',
+      loadError: 'Failed to load data.',
+      explanation: 'Explanation',
+      linkToBias: 'Open bias page'
+    }
+  };
 
-    function applyTexts() {
-      const t = texts[locale];
-      document.querySelector('.navbar-brand').textContent = t.brand;
-      document.getElementById('pageTitle').textContent = t.title;
-      document.getElementById('nextBtn').textContent = t.next;
+  function applyTexts() {
+    const t = texts[locale];
+    document.querySelector('.navbar-brand').textContent = t.brand;
+    document.getElementById('pageTitle').textContent = t.title;
+    document.getElementById('nextBtn').textContent = t.next;
+  }
+  applyTexts();
+
+  languageSelect.addEventListener('change', () => {
+    localStorage.setItem('lang', languageSelect.value);
+    location.reload();
+  });
+
+  // --- Загрузка данных с кэшем и фолбэком на локальный JSON ---
+  async function getBiases() {
+    const cacheKey = `biasData_${locale}`;
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      try { return JSON.parse(cached); } catch { localStorage.removeItem(cacheKey); }
     }
 
-    applyTexts();
+    try {
+      const apiUrl = `https://api.lutai.ru/api/biases?pagination[limit]=300&locale=${locale}`;
+      const r = await fetch(apiUrl, { cache: 'no-store' });
+      const j = await r.json();
+      const data = Array.isArray(j?.data) ? j.data : [];
+      if (data.length) {
+        localStorage.setItem(cacheKey, JSON.stringify(data));
+        return data;
+      }
+    } catch (_) {}
 
-    languageSelect.addEventListener('change', () => {
-      localStorage.setItem('lang', languageSelect.value);
-      location.reload();
+    try {
+      const localUrl = encodeURI('biasesрус-бекап 20 август 20 август 2025.json'.replace(' 20 август ', ' ')); // на случай пробела в названии
+      const r = await fetch(localUrl, { cache: 'no-store' });
+      const j = await r.json();
+      const data = Array.isArray(j?.data) ? j.data : (Array.isArray(j) ? j : []);
+      if (data.length) {
+        localStorage.setItem(cacheKey, JSON.stringify(data));
+        return data;
+      }
+    } catch (_) {}
+
+    return [];
+  }
+
+  // --- DOM ---
+  const questionText = document.getElementById('questionText');
+  const answersEl    = document.getElementById('answers');
+  const nextBtn      = document.getElementById('nextBtn');
+  const explanationEl= document.getElementById('explanation');
+
+  // --- Helpers ---
+  const norm = s => (s ?? '')
+    .toString()
+    .replace(/\u00A0/g, ' ')       // nbsp -> space
+    .replace(/\s+/g, ' ')          // collapse spaces
+    .trim();
+
+  function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  function restartAnimation(node, cls) {
+    node.classList.remove(cls);
+    void node.offsetWidth;
+    node.classList.add(cls);
+  }
+
+  // --- Состояние ---
+  let biases = [];
+  let questions = [];
+  let current = null; // { text, explanation, title, biasId }
+
+  function buildQuestions(data) {
+    questions = [];
+    data.forEach(b => {
+      const qs = b?.content?.questions;
+      if (!qs) return;
+      const arr = Array.isArray(qs) ? qs : [qs];
+      arr.forEach(q => {
+        const text = typeof q === 'string' ? q : (q?.text ?? '');
+        const explanation = typeof q === 'object' ? (q?.answerExplanation ?? '') : '';
+        if (text && b?.title) {
+          questions.push({
+            text: text.trim(),
+            explanation: (explanation || '').trim(),
+            title: b.title,
+            biasId: b.biasId
+          });
+        }
+      });
+    });
+  }
+
+  function showQuestion() {
+    nextBtn.classList.add('d-none');
+    explanationEl.classList.add('d-none');
+    explanationEl.innerHTML = '';
+    answersEl.innerHTML = '';
+
+    current = questions[Math.floor(Math.random() * questions.length)];
+    if (!current) {
+      questionText.textContent = texts[locale].loadError;
+      return;
+    }
+
+    questionText.textContent = current.text;
+    restartAnimation(questionText, 'fade-in');
+
+    const others = shuffle(biases.filter(b => b.title !== current.title));
+    const options = shuffle([current.title, ...others.slice(0, 3).map(b => b.title)]);
+
+    options.forEach((opt, i) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn answer-btn btn-gradient w-100 fade-in';
+      btn.textContent = opt;
+      btn.dataset.value = opt;                 // <- сравниваем по data-атрибуту
+      btn.style.animationDelay = `${i * 120}ms`;
+      btn.onclick = () => checkAnswer(btn.dataset.value, btn);
+      answersEl.appendChild(btn);
+    });
+  }
+
+  function checkAnswer(answer, clickedBtn) {
+    const isCorrect = norm(answer) === norm(current.title);
+
+    Array.from(answersEl.children).forEach(b => {
+      b.disabled = true;
+      // Полная очистка состояний
+      b.classList.remove('btn-gradient','answer-correct','answer-wrong','answer-dim','celebrate','pop','shake');
+
+      if (norm(b.dataset.value) === norm(current.title)) {
+        b.classList.add('answer-correct');       // правильный — зелёный
+      } else if (b === clickedBtn && !isCorrect) {
+        b.classList.add('answer-wrong');         // выбранный неправильный — КРАСНЫЙ
+      } else {
+        b.classList.add('answer-dim');           // остальные — минималистичные
+      }
     });
 
-    function getBiases() {
-      const cacheKey = `biasData_${locale}`;
-      const cached = localStorage.getItem(cacheKey);
-      if (cached) {
-        try {
-          return Promise.resolve(JSON.parse(cached));
-        } catch (e) {
-          localStorage.removeItem(cacheKey);
-        }
-      }
-      return fetch(`https://api.lutai.ru/api/biases?pagination[limit]=300&locale=${locale}`)
-        .then(r => r.json())
-        .then(({data}) => {
-          localStorage.setItem(cacheKey, JSON.stringify(data));
-          return data;
-        });
+    // Анимации выбранной кнопки
+    if (isCorrect) {
+      clickedBtn.classList.add('celebrate');     // радостная анимация успеха
+    } else {
+      restartAnimation(clickedBtn, 'shake');     // дерганая анимация ошибки
     }
 
-    const questionText = document.getElementById('questionText');
-    const answersEl = document.getElementById('answers');
-    const nextBtn = document.getElementById('nextBtn');
+    const t = texts[locale];
+    const link = current.biasId
+      ? `<div class="mt-2"><a href="bias.html?biasId=${current.biasId}" class="link-primary">${t.linkToBias}</a></div>`
+      : '';
+    const explanationText = current.explanation
+      ? `<div><strong>${t.explanation}:</strong> ${current.explanation}</div>`
+      : '';
+    explanationEl.innerHTML = explanationText + link;
+    explanationEl.classList.remove('d-none');
+    restartAnimation(explanationEl, 'fade-in');
 
-    let biases = [];
-    let questions = [];
-    let currentAnswer = '';
+    nextBtn.classList.remove('d-none');
+    restartAnimation(nextBtn, 'fade-in');
+  }
 
-    function buildQuestions(data) {
-      data.forEach(b => {
-        let qs = b.content?.questions;
-        if (typeof qs === 'string') qs = [qs];
-        if (!Array.isArray(qs)) return;
-        qs.forEach(q => {
-          questions.push({text: q, title: b.title});
-        });
-      });
-    }
 
-    function shuffle(arr) {
-      for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [arr[i], arr[j]] = [arr[j], arr[i]];
-      }
-      return arr;
-    }
+  nextBtn.addEventListener('click', showQuestion);
 
-    function showQuestion() {
-      nextBtn.classList.add('d-none');
-      answersEl.innerHTML = '';
+  getBiases()
+    .then(data => {
+      biases = data;
+      buildQuestions(data);
+      if (questions.length) showQuestion();
+      else questionText.textContent = texts[locale].loadError;
+    })
+    .catch(() => { questionText.textContent = texts[locale].loadError; });
+</script>
 
-      const qItem = questions[Math.floor(Math.random() * questions.length)];
-      currentAnswer = qItem.title;
-      questionText.textContent = qItem.text;
-
-      const other = biases.filter(b => b.title !== currentAnswer);
-      shuffle(other);
-      const options = [currentAnswer, ...other.slice(0, 3).map(b => b.title)];
-      shuffle(options);
-
-      options.forEach(opt => {
-        const btn = document.createElement('button');
-        btn.className = 'btn btn-outline-primary me-2 mb-2';
-        btn.textContent = opt;
-        btn.onclick = () => checkAnswer(opt, btn);
-        answersEl.appendChild(btn);
-      });
-    }
-
-    function checkAnswer(answer, btn) {
-      Array.from(answersEl.children).forEach(b => {
-        b.disabled = true;
-        if (b.textContent === currentAnswer) {
-          b.classList.remove('btn-outline-primary');
-          b.classList.add('btn-success');
-        } else if (b === btn) {
-          b.classList.remove('btn-outline-primary');
-          b.classList.add('btn-danger');
-        }
-      });
-      nextBtn.classList.remove('d-none');
-    }
-
-    nextBtn.addEventListener('click', showQuestion);
-
-    getBiases()
-      .then(data => {
-        biases = data;
-        buildQuestions(data);
-        if (questions.length) {
-          showQuestion();
-        } else {
-          questionText.textContent = texts[locale].loadError;
-        }
-      })
-      .catch(() => {
-        questionText.textContent = texts[locale].loadError;
-      });
-  </script>
 </body>
 </html>
