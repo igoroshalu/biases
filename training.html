@@ -12,7 +12,7 @@
     <div class="container">
       <a class="navbar-brand" href="index.html">Когнитивные искажения</a>
       <div class="d-flex ms-auto align-items-center">
-        <select id="languageSelect" class="form-select me-2" style="width:auto">
+        <select id="languageSelect" class="form-select" style="width:auto">
           <option value="ru">Русский</option>
           <option value="en">English</option>
         </select>
@@ -48,6 +48,11 @@
   languageSelect.value = locale;
   document.documentElement.lang = locale;
 
+  const localeMap = { ru: 'ru-RU', en: 'en-US' };
+  const defaultApiLocale = 'ru-RU';
+  const apiBase = 'https://cdn.contentful.com/spaces/bczf5h4ng6uk/environments/master/entries';
+  const token   = 'byZhanM7gUzErkI8Kv2Vxq8UfwiRdLcwDEOANav8K7g';
+
   const texts = {
     ru: {
       brand: 'Когнитивные искажения',
@@ -80,37 +85,81 @@
     location.reload();
   });
 
-  // --- Загрузка данных с кэшем и фолбэком на локальный JSON ---
+  // --- Загрузка данных из Contentful ---
+  const richTextToString = (rt) => {
+    if (typeof rt === 'string') return rt;
+    const out = [];
+    (rt?.content || []).forEach(block => {
+      const text = (block?.content || [])
+        .map(child => child?.value || '')
+        .join('')
+        .trim();
+      if (text) out.push(text);
+    });
+    return out.join('\n\n');
+  };
+
+  const normalizeArray = (value) => {
+    if (Array.isArray(value)) return value;
+    return value ? [value] : [];
+  };
+
+  const normalizeBias = (item) => {
+    const f = item?.fields || {};
+    const content = f.content || {};
+    const engTitle = content.engTitle || f.engTitle || '';
+    const title = locale === 'en' ? (engTitle || f.title || '') : (f.title || engTitle || '');
+    return {
+      biasId: Number(f.biasId) || null,
+      title,
+      shortDescription: f.shortDescription || content.shortDescription || '',
+      category: f.category || content.category || '',
+      fullDescription: richTextToString(f.fullDescription || content.fullDescription || ''),
+      content: {
+        engTitle,
+        advices: normalizeArray(content.advices || f.advices),
+        examples: normalizeArray(content.examples || f.examples),
+        questions: normalizeArray(content.questions || f.questions),
+        wikipediaLink: content.wikipediaLink || f.wikipediaLink
+      },
+      wikipediaLink: content.wikipediaLink || f.wikipediaLink
+    };
+  };
+
+  const fetchEntries = (langCode) => {
+    const apiLocale = localeMap[langCode] || defaultApiLocale;
+    const apiUrl = `${apiBase}?access_token=${token}&locale=${apiLocale}&limit=1000`;
+    return fetch(apiUrl, { cache: 'no-store' })
+      .then(r => r.json())
+      .then(j => j.items || []);
+  };
+
   async function getBiases() {
-    const cacheKey = `biasData_${locale}`;
+    const cacheKey = `biasData_v2_${locale}`;
     const cached = localStorage.getItem(cacheKey);
     if (cached) {
       try { return JSON.parse(cached); } catch { localStorage.removeItem(cacheKey); }
     }
 
+    let items = [];
     try {
-      const apiUrl = `https://api.lutai.ru/api/biases?pagination[limit]=300&locale=${locale}`;
-      const r = await fetch(apiUrl, { cache: 'no-store' });
-      const j = await r.json();
-      const data = Array.isArray(j?.data) ? j.data : [];
-      if (data.length) {
-        localStorage.setItem(cacheKey, JSON.stringify(data));
-        return data;
+      items = await fetchEntries(locale);
+      if (!items.length && locale !== 'ru') {
+        items = await fetchEntries('ru');
       }
-    } catch (_) {}
-
-    try {
-      const localUrl = encodeURI('biasesрус-бекап 20 август 20 август 2025.json'.replace(' 20 август ', ' ')); // на случай пробела в названии
-      const r = await fetch(localUrl, { cache: 'no-store' });
-      const j = await r.json();
-      const data = Array.isArray(j?.data) ? j.data : (Array.isArray(j) ? j : []);
-      if (data.length) {
-        localStorage.setItem(cacheKey, JSON.stringify(data));
-        return data;
+    } catch (e) {
+      if (locale !== 'ru') {
+        items = await fetchEntries('ru');
+      } else {
+        throw e;
       }
-    } catch (_) {}
+    }
 
-    return [];
+    const data = Array.isArray(items) ? items.map(normalizeBias).filter(b => b.biasId) : [];
+    if (data.length) {
+      localStorage.setItem(cacheKey, JSON.stringify(data));
+    }
+    return data;
   }
 
   // --- DOM ---
