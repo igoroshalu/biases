@@ -43,42 +43,113 @@
     langSelect.value = locale;
     htmlTag.lang = locale;
 
+    const localeMap = { ru: 'ru-RU', en: 'en-US' };
+    const defaultApiLocale = 'ru-RU';
+    const apiBase = 'https://cdn.contentful.com/spaces/bczf5h4ng6uk/environments/master/entries';
+    const token   = 'byZhanM7gUzErkI8Kv2Vxq8UfwiRdLcwDEOANav8K7g';
+
     const texts = {
       ru: {brand:'BIAS TRAINER', heading:'Список когнитивных искажений',
            search:'Поиск…', training:'Тренировка', error:'Не удалось загрузить данные.'},
       en: {brand:'Cognitive biases', heading:'List of cognitive biases',
            search:'Search…', training:'Training', error:'Failed to load data.'}
     };
+
     function applyTexts() {
       const t = texts[locale];
-      // document.querySelector('.navbar-brand').textContent = t.brand;
       document.getElementById('pageHeading').textContent  = t.heading;
       searchInput.placeholder = t.search;
       trainingLink.textContent = t.training;
     }
     applyTexts();
+
     langSelect.addEventListener('change', () => {
       localStorage.setItem('lang', langSelect.value);
       location.reload();
     });
 
-    function getBiases() {
-      const key = `biasData_${locale}`;
+    const richTextToString = (rt) => {
+      if (typeof rt === 'string') return rt;
+      const out = [];
+      (rt?.content || []).forEach(block => {
+        const text = (block?.content || [])
+          .map(child => child?.value || '')
+          .join('')
+          .trim();
+        if (text) out.push(text);
+      });
+      return out.join('\n\n');
+    };
+
+    const normalizeArray = (value) => {
+      if (Array.isArray(value)) return value;
+      return value ? [value] : [];
+    };
+
+    const normalizeBias = (item) => {
+      const f = item?.fields || {};
+      const content = f.content || {};
+      const engTitle = content.engTitle || f.engTitle || '';
+      const title = locale === 'en' ? (engTitle || f.title || '') : (f.title || engTitle || '');
+      return {
+        biasId: Number(f.biasId) || null,
+        title,
+        shortDescription: f.shortDescription || content.shortDescription || '',
+        category: f.category || content.category || '',
+        fullDescription: richTextToString(f.fullDescription || content.fullDescription || ''),
+        content: {
+          engTitle,
+          advices: normalizeArray(content.advices || f.advices),
+          examples: normalizeArray(content.examples || f.examples),
+          questions: normalizeArray(content.questions || f.questions),
+          wikipediaLink: content.wikipediaLink || f.wikipediaLink
+        },
+        wikipediaLink: content.wikipediaLink || f.wikipediaLink
+      };
+    };
+
+    function fetchEntries(langCode) {
+      const apiLocale = localeMap[langCode] || defaultApiLocale;
+      const url = `${apiBase}?access_token=${token}&locale=${apiLocale}&limit=1000`;
+      return fetch(url).then(r => r.json()).then(j => j.items || []);
+    }
+
+    async function getBiases() {
+      const key = `biasData_v2_${locale}`;
       const cached = localStorage.getItem(key);
       if (cached) {
-        try { return Promise.resolve(JSON.parse(cached)); }
+        try { return JSON.parse(cached); }
         catch { localStorage.removeItem(key); }
       }
-      return fetch(`https://api.lutai.ru/api/biases?pagination[limit]=300&locale=${locale}`)
-        .then(r => r.json())
-        .then(({data}) => { localStorage.setItem(key, JSON.stringify(data)); return data; });
+
+      let items = [];
+      try {
+        items = await fetchEntries(locale);
+        if (!items.length && locale !== 'ru') {
+          items = await fetchEntries('ru');
+        }
+      } catch (e) {
+        if (locale !== 'ru') {
+          items = await fetchEntries('ru');
+        } else {
+          throw e;
+        }
+      }
+
+      const normalized = items
+        .map(normalizeBias)
+        .filter(b => b.biasId);
+      if (normalized.length) {
+        localStorage.setItem(key, JSON.stringify(normalized));
+      }
+      return normalized;
     }
 
     getBiases()
       .then(data => {
-        data.sort((a,b) => (a.biasId-100) - (b.biasId-100));
+        data.sort((a,b) => (a.biasId || 0) - (b.biasId || 0));
         data.forEach(bias => {
-          const idTrue  = bias.biasId - 100;
+          const idTrue  = bias.biasId ? bias.biasId - 100 : '';
           const title   = bias.title;
           const descr   = bias.shortDescription || '';
           const imgName = bias.content?.engTitle?.trim().toLowerCase();
@@ -108,7 +179,7 @@
         });
 
         searchInput.addEventListener('input', () => {
-          const q = searchInput.value.trim();
+          const q = searchInput.value.trim().toLowerCase();
           listEl.querySelectorAll('.bias-col').forEach(col => {
             const title = col.querySelector('.card').dataset.title;
             col.classList.toggle('hidden', !title.includes(q));

@@ -13,6 +13,12 @@
   <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
     <div class="container">
       <a class="navbar-brand" href="index.html"><b>BIAS TRAINER</b></a>
+      <div class="d-flex ms-auto align-items-center">
+        <select id="languageSelect" class="form-select" style="width:auto">
+          <option value="ru">🇷🇺 RU</option>
+          <option value="en">🇬🇧 Eng</option>
+        </select>
+      </div>
     </div>
   </nav>
 
@@ -24,79 +30,153 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script>
+    const biasContentEl = document.getElementById('bias-content');
+    const languageSelect = document.getElementById('languageSelect');
+    const htmlTag = document.documentElement;
+
+    const locale = localStorage.getItem('lang') || 'ru';
+    htmlTag.lang = locale;
+    languageSelect.value = locale;
+
+    const texts = {
+      ru: { notFound: 'Искажение не найдено.', missing: 'Не указан BIAS ID.', error: 'Ошибка загрузки данных.',
+        examples: 'Примеры', details: 'Подробнее', advices: 'Советы', wiki: 'Статья в Википедии' },
+      en: { notFound: 'Bias not found.', missing: 'BIAS ID is missing.', error: 'Failed to load data.',
+        examples: 'Examples', details: 'Details', advices: 'Tips', wiki: 'Wikipedia article' }
+    };
+
+    const localeMap = { ru: 'ru-RU', en: 'en-US' };
+    const defaultApiLocale = 'ru-RU';
+    const apiBase = 'https://cdn.contentful.com/spaces/bczf5h4ng6uk/environments/master/entries';
+    const token = 'byZhanM7gUzErkI8Kv2Vxq8UfwiRdLcwDEOANav8K7g';
+
+    languageSelect.addEventListener('change', () => {
+      localStorage.setItem('lang', languageSelect.value);
+      location.reload();
+    });
+
     const biasId = +new URLSearchParams(location.search).get('biasId');
     if (!biasId) {
-      document.getElementById('bias-content').innerHTML =
-        '<p class="text-danger">Не указан BIAS ID.</p>';
+      biasContentEl.innerHTML = `<p class="text-danger">${texts[locale].missing}</p>`;
       throw new Error('biasId missing');
     }
 
-    fetch('https://api.lutai.ru/api/biases?pagination[limit]=300&locale=ru')
-      .then(r => r.json())
-      .then(({ data }) => {
-        const bias = data.find(b => b.biasId === biasId);
+    const richTextToString = (rt) => {
+      if (typeof rt === 'string') return rt;
+      const out = [];
+      (rt?.content || []).forEach(block => {
+        const text = (block?.content || [])
+          .map(child => child?.value || '')
+          .join('')
+          .trim();
+        if (text) out.push(text);
+      });
+      return out.join('\n\n');
+    };
+
+    const normalizeArray = (value) => {
+      if (Array.isArray(value)) return value;
+      return value ? [value] : [];
+    };
+
+    const normalizeBias = (item) => {
+      const f = item?.fields || {};
+      const content = f.content || {};
+      const engTitle = content.engTitle || f.engTitle || '';
+      const title = locale === 'en' ? (engTitle || f.title || '') : (f.title || engTitle || '');
+      return {
+        biasId: Number(f.biasId) || null,
+        title,
+        shortDescription: f.shortDescription || content.shortDescription || '',
+        category: f.category || content.category || '',
+        fullDescription: richTextToString(f.fullDescription || content.fullDescription || ''),
+        content: {
+          engTitle,
+          advices: normalizeArray(content.advices || f.advices),
+          examples: normalizeArray(content.examples || f.examples),
+          questions: normalizeArray(content.questions || f.questions),
+          wikipediaLink: content.wikipediaLink || f.wikipediaLink
+        },
+        wikipediaLink: content.wikipediaLink || f.wikipediaLink
+      };
+    };
+
+    const renderBias = (bias) => {
+      const trueId = bias.biasId ? bias.biasId - 100 : '';
+      const title = bias.title;
+      const shortDes = bias.shortDescription || '';
+      const fullDes = bias.fullDescription || '';
+      const cat = bias.category || '';
+      const { engTitle, examples = [], advices = [] } = bias.content ?? {};
+
+      let imgTag = '';
+      if (engTitle && engTitle.trim()) {
+        const imgSrc = 'img/' + encodeURIComponent(engTitle.trim()) + '.png';
+        imgTag = `<img src="${imgSrc}" alt="${title}"
+                        class="article-img mb-4"
+                        onerror="this.style.display='none'">`;
+      }
+
+      let html = `
+        ${imgTag}
+        <h1 class="mb-3">${trueId}. ${title}</h1>
+        ${cat ? `<span class="badge mb-3">${cat}</span>` : ''}
+        ${shortDes ? `<p class="fs-5 mb-4">${shortDes}</p>` : ''}`;
+
+      if (examples.length) {
+        html += `<h3 class="mt-3">${texts[locale].examples}</h3><ul>`;
+        examples.forEach(e => html += `<li>${e}</li>`);
+        html += '</ul>';
+      }
+
+      const paragraphs = fullDes
+        .split(/\n{2,}/)
+        .filter(Boolean)
+        .map(p => `<p>${p.trim()}</p>`)
+        .join('');
+      if (paragraphs) {
+        html += `<h3 class="mt-4">${texts[locale].details}</h3>` + paragraphs;
+      }
+
+      if (advices.length) {
+        html += `<h3 class="mt-4">${texts[locale].advices}</h3><ul>`;
+        advices.forEach(a => html += `<li>${a}</li>`);
+        html += '</ul>';
+      }
+
+      if (bias.wikipediaLink) {
+        const linkText = texts[locale].wiki;
+        html += `<p class="mt-4"><a href="${bias.wikipediaLink}" target="_blank" rel="noopener">${linkText}</a></p>`;
+      }
+
+      biasContentEl.innerHTML = html;
+    };
+
+    const fetchEntries = (langCode) => {
+      const apiLocale = localeMap[langCode] || defaultApiLocale;
+      const apiUrl = `${apiBase}?access_token=${token}&locale=${apiLocale}&limit=1000`;
+      return fetch(apiUrl).then(r => r.json()).then(j => j.items || []);
+    };
+
+    (async () => {
+      try {
+        let items = await fetchEntries(locale);
+        if (!items.length && locale !== 'ru') {
+          items = await fetchEntries('ru');
+        }
+
+        const biases = items.map(normalizeBias).filter(b => b.biasId);
+        const bias = biases.find(b => b.biasId === biasId);
         if (!bias) {
-          document.getElementById('bias-content').innerHTML =
-            '<p class="text-danger">Искажение не найдено.</p>';
+          biasContentEl.innerHTML = `<p class="text-danger">${texts[locale].notFound}</p>`;
           return;
         }
-
-        const trueId = bias.biasId - 100;
-        const title = bias.title;
-        const shortDes = bias.shortDescription || '';
-        const fullDes = bias.fullDescription || '';
-        const cat = bias.category || '';
-        const { engTitle, examples = [], advices = [] } = bias.content ?? {};
-
-        /* ----------  Картинка (только если есть engTitle)  ---------- */
-        let imgTag = '';
-        if (engTitle && engTitle.trim()) {
-          const imgSrc = 'img/' + encodeURIComponent(engTitle.trim()) + '.png';
-          imgTag = `<img src="${imgSrc}" alt="${title}"
-                          class="article-img mb-4"
-                          onerror="this.style.display='none'">`;
-        }
-
-        /* ----------  Рендер  ---------- */
-        let html = `
-          ${imgTag}
-          <h1 class="mb-3">${trueId}. ${title}</h1>
-          ${cat ? `<span class="badge mb-3">${cat}</span>` : ''}
-          ${shortDes ? `<p class="fs-5 mb-4">${shortDes}</p>` : ''}`;
-
-        if (examples.length) {
-          html += '<h3 class="mt-3">Примеры</h3><ul>';
-          examples.forEach(e => html += `<li>${e}</li>`);
-          html += '</ul>';
-        }
-
-        const paragraphs = fullDes
-          .split(/\n{2,}/)            // разбиваем по одной-двум и более пустым строкам
-          .filter(Boolean)
-          .map(p => `<p>${p.trim()}</p>`)
-          .join('');
-        if (paragraphs) {
-          html += '<h3 class="mt-4">Подробнее</h3>' + paragraphs;
-        }
-
-        if (advices.length) {
-          html += '<h3 class="mt-4">Советы</h3><ul>';
-          advices.forEach(a => html += `<li>${a}</li>`);
-          html += '</ul>';
-        }
-
-        if (bias.wikipediaLink) {
-          html += `<p class="mt-4"><a href="${bias.wikipediaLink}"
-                       target="_blank" rel="noopener">Статья в Википедии</a></p>`;
-        }
-
-        document.getElementById('bias-content').innerHTML = html;
-      })
-      .catch(err => {
+        renderBias(bias);
+      } catch (err) {
         console.error(err);
-        document.getElementById('bias-content').innerHTML =
-          '<p class="text-danger">Ошибка загрузки данных.</p>';
-      });
+        biasContentEl.innerHTML = `<p class="text-danger">${texts[locale].error}</p>`;
+      }
+    })();
   </script>
 </body>
 
