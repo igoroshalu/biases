@@ -152,7 +152,13 @@
           const idTrue  = bias.biasId ? bias.biasId - 100 : '';
           const title   = bias.title;
           const descr   = bias.shortDescription || '';
-          const imgName = bias.content?.engTitle?.trim().toLowerCase();
+          const normalizeImgName = (name) =>
+            name
+              ?.trim()
+              .replace(/[\u2013\u2014]/g, '-')   // en/em dash → hyphen
+              .replace(/\s+/g, ' ')             // collapse repeated spaces
+              .toLowerCase();
+          const imgName = normalizeImgName(bias.content?.engTitle);
           const imgSrc  = imgName ? `img/${encodeURIComponent(imgName)}.png` : null;
 
           const col = document.createElement('div');
