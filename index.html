@@ -1,200 +1,167 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="utf-8">
-  <title>Когнитивные искажения</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <!-- Bootstrap -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <!-- Custom styles -->
-  <link href="style.css" rel="stylesheet">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Тренажёр экзаменационных билетов</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- Navbar -->
-  <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-    <div class="container">
-      <a class="navbar-brand" href="#"><b>BIAS TRAINER</b></a>
-      <div class="d-flex ms-auto align-items-center">
-        <a id="trainingLink" href="training.html" class="btn btn-outline-light me-2">Тренировка</a>
-        <select id="languageSelect" class="form-select me-2" style="width:auto">
-          <option value="ru">🇷🇺 RU</option>
-          <option value="en">🇬🇧 Eng</option>
-        </select>
-        <input id="searchInput" class="form-control" type="search" placeholder="Поиск…" aria-label="Поиск" style="max-width:270px">
+  <div class="app-shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Подготовка к экзамену</p>
+        <h1>Тренажёр для изучения 50 билетов</h1>
+        <p class="hero-text">
+          Открывай конкретный билет, повторяй ответ целиком или тяни случайный вопрос,
+          чтобы проверить себя в режиме тренировки.
+        </p>
       </div>
-    </div>
-  </nav>
 
-  <div class="container my-4">
-    <h1 class="mb-4" id="pageHeading">Список когнитивных искажений</h1>
-    <!-- Grid: 4 cols on md+ -->
-    <div id="bias-list" class="row g-4"></div>
+      <div class="hero-actions">
+        <button class="primary-button" id="openPickerButton">Выбрать билет</button>
+        <button class="secondary-button" id="randomTicketButton">Тянуть случайный билет</button>
+      </div>
+
+      <div class="hero-stats" aria-label="Статистика тренировки">
+        <article class="stat-card">
+          <span class="stat-value" id="totalTicketsCount">50</span>
+          <span class="stat-label">билетов</span>
+        </article>
+        <article class="stat-card">
+          <span class="stat-value" id="viewedTicketsCount">0</span>
+          <span class="stat-label">просмотрено</span>
+        </article>
+        <article class="stat-card">
+          <span class="stat-value" id="randomModeCount">0</span>
+          <span class="stat-label">случайных вытягиваний</span>
+        </article>
+      </div>
+    </header>
+
+    <main class="layout-grid">
+      <section class="panel panel-large" aria-labelledby="studyModeTitle">
+        <div class="panel-head">
+          <div>
+            <p class="section-kicker">Режим обучения</p>
+            <h2 id="studyModeTitle">Открыть билет и спокойно дочитать</h2>
+          </div>
+          <button class="ghost-button" id="repeatLastTicketButton" disabled>Открыть последний</button>
+        </div>
+
+        <div id="emptyState" class="empty-state">
+          <div class="empty-icon">🎟️</div>
+          <h3>Выбери билет из списка</h3>
+          <p>
+            В списке показываются номер билета, заголовок и короткое описание.
+            После открытия можно читать вопрос, смотреть ответ и закрывать карточку.
+          </p>
+        </div>
+
+        <article id="ticketViewer" class="ticket-viewer hidden" aria-live="polite">
+          <div class="ticket-meta-row">
+            <span class="ticket-badge" id="viewerTicketNumber"></span>
+            <span class="ticket-theme" id="viewerTicketTheme"></span>
+          </div>
+          <h3 id="viewerTicketTitle"></h3>
+          <p class="ticket-note" id="viewerTicketSummary"></p>
+
+          <div class="ticket-section">
+            <h4>Вопрос</h4>
+            <p id="viewerTicketQuestion"></p>
+          </div>
+
+          <div class="ticket-section answer-box" id="viewerAnswerBox">
+            <div class="answer-head">
+              <h4>Ответ</h4>
+              <button class="secondary-button compact-button" id="toggleViewerAnswerButton">Показать ответ</button>
+            </div>
+            <p id="viewerTicketAnswer" class="hidden-answer"></p>
+          </div>
+
+          <div class="ticket-footer">
+            <span id="viewerProgressText"></span>
+            <button class="ghost-button" id="closeViewerButton">Закрыть</button>
+          </div>
+        </article>
+      </section>
+
+      <section class="panel" aria-labelledby="randomModeTitle">
+        <div class="panel-head">
+          <div>
+            <p class="section-kicker">Режим тренировки</p>
+            <h2 id="randomModeTitle">Случайный билет</h2>
+          </div>
+        </div>
+
+        <article class="random-card" id="randomCard">
+          <span class="ticket-badge" id="randomTicketNumber">—</span>
+          <h3 id="randomTicketTitle">Нажми на кнопку, чтобы вытянуть билет</h3>
+          <p class="ticket-note" id="randomTicketSummary">
+            Подойдёт для быстрого самоконтроля перед экзаменом.
+          </p>
+
+          <div class="ticket-section">
+            <h4>Вопрос</h4>
+            <p id="randomTicketQuestion">Сначала выбери режим «Тянуть случайный билет».</p>
+          </div>
+
+          <div class="ticket-section answer-box" id="randomAnswerBox">
+            <div class="answer-head">
+              <h4>Ответ</h4>
+              <button class="secondary-button compact-button" id="showRandomAnswerButton" disabled>Смотреть ответ</button>
+            </div>
+            <p id="randomTicketAnswer" class="hidden-answer">Ответ появится здесь.</p>
+          </div>
+
+          <div class="random-actions">
+            <button class="primary-button" id="nextRandomTicketButton" disabled>Тянуть следующий билет</button>
+          </div>
+        </article>
+      </section>
+
+      <section class="panel suggestions-panel" aria-labelledby="ideasTitle">
+        <div class="panel-head">
+          <div>
+            <p class="section-kicker">Что ещё можно добавить</p>
+            <h2 id="ideasTitle">Идеи для следующей версии</h2>
+          </div>
+        </div>
+
+        <ul class="ideas-list">
+          <li><strong>Избранное:</strong> помечать сложные билеты и повторять только их.</li>
+          <li><strong>Фильтр по темам:</strong> учить отдельно теорию, практику или конкретный раздел.</li>
+          <li><strong>Прогресс:</strong> сохранять, какие билеты уже повторены и сколько раз.</li>
+          <li><strong>Режим самопроверки:</strong> сначала пытаться ответить самому, затем открывать эталон.</li>
+          <li><strong>Таймер:</strong> тренироваться отвечать в условиях, приближённых к экзамену.</li>
+          <li><strong>Импорт из JSON:</strong> быстро подставить свои реальные 50 билетов без правки интерфейса.</li>
+        </ul>
+      </section>
+    </main>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script>
-    const searchInput   = document.getElementById('searchInput');
-    const listEl        = document.getElementById('bias-list');
-    const langSelect    = document.getElementById('languageSelect');
-    const trainingLink  = document.getElementById('trainingLink');
-    const htmlTag       = document.documentElement;
+  <div class="modal-overlay hidden" id="ticketPickerModal" aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="pickerTitle">
+      <div class="modal-head">
+        <div>
+          <p class="section-kicker">Все билеты</p>
+          <h2 id="pickerTitle">Выбери нужный билет</h2>
+        </div>
+        <button class="icon-button" id="closePickerButton" aria-label="Закрыть список билетов">✕</button>
+      </div>
 
-    let locale = localStorage.getItem('lang') || 'ru';
-    langSelect.value = locale;
-    htmlTag.lang = locale;
+      <label class="search-field">
+        <span>Поиск по номеру или заголовку</span>
+        <input id="ticketSearchInput" type="search" placeholder="Например, 12 или «Теория»">
+      </label>
 
-    const localeMap = { ru: 'ru-RU', en: 'en-US' };
-    const defaultApiLocale = 'ru-RU';
-    const apiBase = 'https://cdn.contentful.com/spaces/bczf5h4ng6uk/environments/master/entries';
-    const token   = 'byZhanM7gUzErkI8Kv2Vxq8UfwiRdLcwDEOANav8K7g';
+      <div class="ticket-list" id="ticketList"></div>
+    </div>
+  </div>
 
-    const texts = {
-      ru: {brand:'BIAS TRAINER', heading:'Список когнитивных искажений',
-           search:'Поиск…', training:'Тренировка', error:'Не удалось загрузить данные.'},
-      en: {brand:'Cognitive biases', heading:'List of cognitive biases',
-           search:'Search…', training:'Training', error:'Failed to load data.'}
-    };
-
-    function applyTexts() {
-      const t = texts[locale];
-      document.getElementById('pageHeading').textContent  = t.heading;
-      searchInput.placeholder = t.search;
-      trainingLink.textContent = t.training;
-    }
-    applyTexts();
-
-    langSelect.addEventListener('change', () => {
-      localStorage.setItem('lang', langSelect.value);
-      location.reload();
-    });
-
-    const richTextToString = (rt) => {
-      if (typeof rt === 'string') return rt;
-      const out = [];
-      (rt?.content || []).forEach(block => {
-        const text = (block?.content || [])
-          .map(child => child?.value || '')
-          .join('')
-          .trim();
-        if (text) out.push(text);
-      });
-      return out.join('\n\n');
-    };
-
-    const normalizeArray = (value) => {
-      if (Array.isArray(value)) return value;
-      return value ? [value] : [];
-    };
-
-    const normalizeBias = (item) => {
-      const f = item?.fields || {};
-      const content = f.content || {};
-      const engTitle = content.engTitle || f.engTitle || '';
-      const title = locale === 'en' ? (engTitle || f.title || '') : (f.title || engTitle || '');
-      return {
-        biasId: Number(f.biasId) || null,
-        title,
-        shortDescription: f.shortDescription || content.shortDescription || '',
-        category: f.category || content.category || '',
-        fullDescription: richTextToString(f.fullDescription || content.fullDescription || ''),
-        content: {
-          engTitle,
-          advices: normalizeArray(content.advices || f.advices),
-          examples: normalizeArray(content.examples || f.examples),
-          questions: normalizeArray(content.questions || f.questions),
-          wikipediaLink: content.wikipediaLink || f.wikipediaLink
-        },
-        wikipediaLink: content.wikipediaLink || f.wikipediaLink
-      };
-    };
-
-    function fetchEntries(langCode) {
-      const apiLocale = localeMap[langCode] || defaultApiLocale;
-      const url = `${apiBase}?access_token=${token}&locale=${apiLocale}&limit=1000`;
-      return fetch(url).then(r => r.json()).then(j => j.items || []);
-    }
-
-    async function getBiases() {
-      const key = `biasData_v2_${locale}`;
-      const cached = localStorage.getItem(key);
-      if (cached) {
-        try { return JSON.parse(cached); }
-        catch { localStorage.removeItem(key); }
-      }
-
-      let items = [];
-      try {
-        items = await fetchEntries(locale);
-        if (!items.length && locale !== 'ru') {
-          items = await fetchEntries('ru');
-        }
-      } catch (e) {
-        if (locale !== 'ru') {
-          items = await fetchEntries('ru');
-        } else {
-          throw e;
-        }
-      }
-
-      const normalized = items
-        .map(normalizeBias)
-        .filter(b => b.biasId);
-      if (normalized.length) {
-        localStorage.setItem(key, JSON.stringify(normalized));
-      }
-      return normalized;
-    }
-
-    getBiases()
-      .then(data => {
-        data.sort((a,b) => (a.biasId || 0) - (b.biasId || 0));
-        data.forEach(bias => {
-          const idTrue  = bias.biasId ? bias.biasId - 100 : '';
-          const title   = bias.title;
-          const descr   = bias.shortDescription || '';
-          const normalizeImgName = (name) =>
-            name
-              ?.trim()
-              .replace(/[\u2013\u2014]/g, '-')   // en/em dash → hyphen
-              .replace(/\s+/g, ' ')             // collapse repeated spaces
-              .toLowerCase();
-          const imgName = normalizeImgName(bias.content?.engTitle);
-          const imgSrc  = imgName ? `img/${encodeURIComponent(imgName)}.png` : null;
-
-          const col = document.createElement('div');
-          col.className = 'col-12 col-sm-6 col-md-3 bias-col';
-
-          col.innerHTML = `
-            <div class="card card-tile h-100 d-flex flex-column" data-title="${title.toLowerCase()}">
-              <div class="tile-img-wrap">
-                ${imgSrc
-                  ? `<img src="${imgSrc}"
-                          alt="${title}"
-                          class="tile-img"
-                          loading="lazy"
-                          onerror="this.onerror=null; const d=document.createElement('div'); d.className='tile-img-placeholder'; this.replaceWith(d);">`
-                  : `<div class="tile-img-placeholder"></div>`}
-              </div>
-              <div class="card-body px-3 py-2 d-flex flex-column">
-                <h5 class="card-title mb-1">${idTrue}. ${title}</h5>
-                <p class="card-text mb-0">${descr}</p>
-                <a href="bias.html?biasId=${bias.biasId}" class="stretched-link"></a>
-              </div>
-            </div>`;
-          listEl.appendChild(col);
-        });
-
-        searchInput.addEventListener('input', () => {
-          const q = searchInput.value.trim().toLowerCase();
-          listEl.querySelectorAll('.bias-col').forEach(col => {
-            const title = col.querySelector('.card').dataset.title;
-            col.classList.toggle('hidden', !title.includes(q));
-          });
-        });
-      })
-      .catch(() => {
-        listEl.innerHTML = `<p class="text-danger">${texts[locale].error}</p>`;
-      });
-  </script>
+  <script src="app.js"></script>
 </body>
 </html>
